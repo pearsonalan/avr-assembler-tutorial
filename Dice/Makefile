@@ -1,3 +1,11 @@
+ifndef PORT
+  PORT := /dev/ttyUSB0
+endif
+
+ifndef BAUD
+  BAUD := 115200
+endif
+
 .PHONY: all upload
 
 all: obj obj/dice-brute.hex obj/dice-macros.hex obj/dice.hex
@@ -17,13 +25,13 @@ obj/dice.hex: obj dice.asm
 upload: upload-dice
 
 upload-brute:
-	avrdude -v -p m328p -c arduino -b 115200 -P /dev/ttyUSB0 -U flash:w:obj/dice-brute.hex
+	avrdude -v -p m328p -c arduino -b $(BAUD) -P $(PORT) -U flash:w:obj/dice-brute.hex
 
 upload-macros:
-	avrdude -v -p m328p -c arduino -b 115200 -P /dev/ttyUSB0 -U flash:w:obj/dice-macros.hex
+	avrdude -v -p m328p -c arduino -b $(BAUD) -P $(PORT) -U flash:w:obj/dice-macros.hex
 
 upload-dice:
-	avrdude -v -p m328p -c arduino -b 115200 -P /dev/ttyUSB0 -U flash:w:obj/dice.hex
+	avrdude -v -p m328p -c arduino -b $(BAUD) -P $(PORT) -U flash:w:obj/dice.hex
 	
 upload-isp:
 	avrdude -C /usr/local/arduino-1.6.4/hardware/tools/avr/etc/avrdude.conf -v -p atmega328p -c usbtiny -U flash:w:obj/dice.hex
