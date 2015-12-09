@@ -132,8 +132,6 @@ random:
 	subi die2,6		; else subtract 6
 	rjmp d2			; go back and compare again
   roll:
-	inc die1		; add 1 so between 1 and 6
-	inc die2
 	ret 
 
 
@@ -141,8 +139,8 @@ random:
 ; dice routine
 ;
 ; input:
-;   die1 (r18) - integer value of die 1 in the range [1,6]
-;   die2 (r19) - integer value of die 2 in the range [1,6]
+;   die1 (r18) - integer value of die 1 in the range [0,5]
+;   die2 (r19) - integer value of die 2 in the range [0,5]
 ;
 ; output:
 ;   die1 (r18) - bitmask for setting the output pins on die1 to show the value
@@ -160,26 +158,24 @@ random:
 ;
 
 dice:
-	ldi zh, high(2*numbers)	; load address of the lookup table into Z register
-	ldi zl, low(2*numbers)	; need to multiply by 2 because address in program 
-				; space is the count of words from 0, whereas we need
-				; count of bytes from 0
+	ldi zl, low(numbers<<1)		; load address of the lookup table into Z register
+	ldi zh, high(numbers<<1)	; need to multiply by 2 because address in program 
+					; space is the count of words from 0, whereas we need
+					; count of bytes from 0
 
-	ldi temp, 0		; use temp register as loop index
+	clr temp			; use temp register as high byte of addition, so we need it to be zero
 
-  check:  
-	inc temp		; increment temp 
-	cp die1, temp		; compare die1 with loop index
-	brne PC+2		; if not equal don't set die1
-	lpm die1, z		; load die1 with bit mask for loop index
-	cp die2,temp		; compare die2 with loop index
-	brne PC+2		; if not equal don't set die2
-	lpm die2, z		; load die2 with bit mask for loop index
-	cpi temp, 6		; if temp is 6 we're done
-	breq PC+3		; if equal go to ret 
-	adiw zl, 1		; increment to next number in lookup table
-	rjmp check		; and loop
-	ser temp		; reset temp
+	add zl, die1			; add low bytes together
+	adc zh, temp			; add carry from low byte addition with 0 in temp register
+	lpm die1, z			; load die1 with bit mask from lookup table
+
+	ldi zl, low(numbers<<1)		; load address of the lookup table into Z register
+	ldi zh, high(numbers<<1)
+
+	add zl, die2			; add low bytes together
+	adc zh, temp			; add carry from low byte addition with 0 in temp register
+	lpm die2, z			; load die2 with bit mask from lookup table
+
 	ret
 
 
