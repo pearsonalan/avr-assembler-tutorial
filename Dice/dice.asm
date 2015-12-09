@@ -9,7 +9,7 @@
 ;--------------------------------
 
 .nolist
-.include "./m328Pdef.inc"
+.include "./m328Pdef.asm"
 .list
 
 ;=================
