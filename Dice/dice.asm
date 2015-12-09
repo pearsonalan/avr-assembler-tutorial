@@ -1,6 +1,5 @@
-; Program function:---------------
-;
-; A dice roller
+;--------------------------------
+; dice: an electronic dice roller
 ;
 ; LEDs on PC0 through 5 
 ; and the center one on PB1
@@ -13,14 +12,6 @@
 .include "./m328Pdef.inc"
 .list
 
-.macro delay
-	clr overflows
-	ldi milliseconds, @0
-sec_count:
-	cpse overflows, milliseconds
-	rjmp sec_count
-.endmacro
-
 ;=================
 ; Declarations:
 
@@ -31,14 +22,35 @@ sec_count:
 .def milliseconds = r20
 .def seed	  = r21
 
+
+; ===========================
+; delay macro
+;
+; input:
+;   @0 - immediate count of how many milliseconds to delay
+; regs altered:
+;   r20 (milliseconds)
+;
+; wait until the given number of milliseconds have elapsed
+; 
+.macro delay
+	clr overflows
+	ldi milliseconds, @0
+sec_count:
+	cpse overflows, milliseconds
+	rjmp sec_count
+.endmacro
+
+
 ;=================
 ; Interrupt vectors
 
 .org 0x0000
-	rjmp Reset
+	rjmp Reset		; Jump to reset handler on reset
 
 .org 0x0020			; Timer0 overflow handler
 	rjmp overflow_handler
+
 
 ;=================
 ; Start of Program
@@ -61,6 +73,11 @@ Reset:
 	out DDRB, temp		; PB0 input the rest output
 	ldi temp, 0b11111111
 	out DDRC, temp		; PortC all output
+	
+	;; fall through right into main
+
+;=================
+; main routine
 
 main: 
 	ser temp
@@ -74,10 +91,26 @@ main:
 	rcall display		; display the result
 	rjmp main
 
+
+; ====================
+; wait_button routine
+;
+; wait until the button attached to PB0 is pressed
+;
+
 wait_button:
 	sbic PINB, 0		; skip if PB0 is GND
 	rjmp wait_button
 	ret
+
+
+; ====================
+; random routine
+;
+; input: 
+;   seed
+; generate a random numbers in die1 and die2
+;
 
 random: 
 	; attempt to generate random numbers
@@ -103,13 +136,37 @@ random:
 	inc die2
 	ret 
 
+
 ; ====================
 ; dice routine
+;
+; input:
+;   die1 (r18) - integer value of die 1 in the range [1,6]
+;   die2 (r19) - integer value of die 2 in the range [1,6]
+;
+; output:
+;   die1 (r18) - bitmask for setting the output pins on die1 to show the value
+;   die2 (r19) - bitmast for setting the output pins on die2 to show the value
+;
+; regs altered:
+;   temp
+;   zl
+;   zh
+;
+; take the integer numbers in die1 and die2 and use them
+; to look up the bitmasks needed to show the dice in the
+; LED displays. On output, die1 and die2 will contian
+; the LED BITMASK values.
+;
 
 dice:
-	ldi zh, high(2*numbers)
-	ldi zl, low(2*numbers)
+	ldi zh, high(2*numbers)	; load address of the lookup table into Z register
+	ldi zl, low(2*numbers)	; need to multiply by 2 because address in program 
+				; space is the count of words from 0, whereas we need
+				; count of bytes from 0
+
 	ldi temp, 0		; use temp register as loop index
+
   check:  
 	inc temp		; increment temp 
 	cp die1, temp		; compare die1 with loop index
@@ -125,6 +182,14 @@ dice:
 	ser temp		; reset temp
 	ret
 
+
+; ====================
+; cycle routine
+;   input: none
+;   output: none
+;   regs altered: temp
+;
+
 cycle:
 	rol temp		; shift bits left with wrap around
 	delay 100		; delay (up to 250 ms)
@@ -135,31 +200,58 @@ cycle:
 	ret
 
 
+; =======================================
+; display routine
+;
+; display the values on the dice LEDs
+; loop until the button is pressed.
+;
+
 display:
-	sbi PORTB,0		; set button to off
-	sbi PORTB,1		; turn off center led
-	sbi PORTB,4		; turn on die1
-	cbi PORTB,5		; turn off die2
-	sbrs die1,7		; skip if center led off
-	cbi PORTB,1		; turn on center led if needed
-	out PORTC,die1		; turn on the others
+	cbi PORTB, 4		; turn off die1
+	cbi PORTB, 5		; turn off die2
+
+  disploop:
+	; set PC0:6 and PB1 according the the LED mask for die1
+	sbi PORTB, 1		; turn off center led
+	sbrs die1, 7		; skip next instruction if center led off
+	cbi PORTB, 1		; turn on center led if needed
+	out PORTC, die1		; turn on the other 6 LEDs according to the bits in die 1
+
+	sbi PORTB, 4		; turn on die1
 	delay 2			; short delay
-	sbi PORTB,1		; turn off center led
-	cbi PORTB,4		; turn off die1
-	sbi PORTB,5		; turn on die2
-	sbrs die2,7		; skip if center led off
-	cbi PORTB,1		; turn on center led if needed
+	cbi PORTB, 4		; turn off die1
+
+	; set PC0:6 and PB1 according the the LED mask for die2
+	sbi PORTB, 1		; turn off center led
+	sbrs die2, 7		; skip if center led off
+	cbi PORTB, 1		; turn on center led if needed
 	out PORTC,die2		; turn on the others
+
+	sbi PORTB, 5		; turn on die2
 	delay 2			; short delay
+	cbi PORTB, 5		; turn off die2
+
 	sbic PINB,0		; exit to main if button press
-	rjmp display		; loop to the top
+	rjmp disploop		; loop to the top
 	ret 
+
+
+; ======================================
+; overflow_handler routine
+; 
+; called by interrupt on timer overflow
+;
 
 overflow_handler: 
 	inc overflows		; increment 1000 times/sec
 	add seed,overflows
 	reti
 
+
+; ==============================================
+; numbers: lookup table for dice LED bitmasks
+;
 numbers:
 	.db 0b01111111, 0b11011110, 0b01011110, 0b11010010 
 	.db 0b01010010, 0b11000000
