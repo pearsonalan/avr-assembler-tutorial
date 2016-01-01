@@ -12,4 +12,4 @@ upload-isp:
 	avrdude -C /usr/local/arduino-1.6.4/hardware/tools/avr/etc/avrdude.conf -v -p atmega328p -c usbtiny -U flash:w:blink.hex
 	
 clean:
-	-rm blink.cof blink.eep.hex blink.hex blink.obj
+	-rm blink.cof blink.eep.hex blink.hex blink.obj blink.lst
