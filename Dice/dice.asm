@@ -159,9 +159,7 @@ random:
 
 dice:
 	ldi zl, low(numbers<<1)		; load address of the lookup table into Z register
-	ldi zh, high(numbers<<1)	; need to multiply by 2 because address in program 
-					; space is the count of words from 0, whereas we need
-					; count of bytes from 0
+	ldi zh, high(numbers<<1)
 
 	clr temp			; use temp register as high byte of addition, so we need it to be zero
 
